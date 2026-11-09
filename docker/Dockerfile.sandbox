@@ -1,0 +1,48 @@
+# Disposable execution environment for commands produced by the agent.
+#
+# It is deliberately boring: a base image plus the handful of utilities the
+# generated bash commands actually reach for. Nothing here is trusted - the
+# container is started with --network none, --read-only, --cap-drop ALL and a
+# non-root user, and it is destroyed after every single command.
+#
+# The root filesystem is read-only, so the working directory is a tmpfs that the
+# entrypoint seeds from /seed on every start. That gives each command a fresh,
+# writable, populated directory that cannot outlive the container.
+FROM debian:bookworm-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        bash \
+        coreutils \
+        findutils \
+        grep \
+        procps \
+        iproute2 \
+        net-tools \
+        iputils-ping \
+        curl \
+        less \
+        file \
+        tree \
+    && rm -rf /var/lib/apt/lists/*
+
+# Scenery, so that `ls -lhS`, `du`, `find` and `tail server.log` have something
+# to report on instead of failing with "no such file".
+RUN mkdir -p /seed/downloads /seed/docs \
+    && head -c 200000 /dev/urandom > /seed/downloads/big.bin \
+    && head -c  50000 /dev/urandom > /seed/downloads/medium.bin \
+    && head -c   1000 /dev/urandom > /seed/downloads/small.bin \
+    && : > /seed/downloads/cache.tmp \
+    && : > /seed/downloads/session.tmp \
+    && printf 'boot ok\nrequest 200\nrequest 500\n' > /seed/server.log \
+    && printf 'hello\n' > /seed/docs/readme.txt \
+    && chmod -R a+rX /seed
+
+COPY sandbox-entry.sh /usr/local/bin/sandbox-entry
+RUN chmod 0755 /usr/local/bin/sandbox-entry
+
+# `nobody`. The runtime also passes --user 65534:65534 so this is belt and braces.
+USER 65534:65534
+WORKDIR /work
+
+ENTRYPOINT ["/usr/local/bin/sandbox-entry"]
+CMD ["echo sandbox ready"]

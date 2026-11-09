@@ -1,0 +1,14 @@
+Results land here: one CSV per iteration, summary.csv, and the multi-tab
+prompt_engineering_results.xlsx that you upload to Google Sheets.
+
+    uv run cli-agent-eval --model gemini-3.1-flash-lite
+
+`--model` matters. The run is 108 calls, and gemini-2.5-flash allows only 20 per
+day on the free tier.
+
+Nothing is committed here pre-generated: a results file that was not produced by a
+real model run is worse than no results file at all. `raw_output` is verbatim what
+the model returned, and every other column is a pure function of it — see
+`agent.evaluate_output()` — which is why a wrong metric gets fixed with
+`cli-agent-eval --rescore` rather than a second, differently-sampled run. Nothing
+in this directory is ever hand-written.
